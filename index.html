@@ -1,0 +1,363 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>JMB PROFESSIONAL V20 - PERMANENT STORAGE</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        :root { --jmb-slate: #1a2a3a; --jmb-accent: #7cb342; --jmb-bg: #f4f7f6; }
+        * { touch-action: manipulation; -webkit-tap-highlight-color: transparent; -webkit-font-smoothing: antialiased; }
+        body { font-family: 'Inter', -apple-system, system-ui, sans-serif; background: var(--jmb-bg); color: #333; height: 100vh; height: -webkit-fill-available; overflow: hidden; display: flex; flex-direction: column; }
+        input, textarea, select { font-size: 16px !important; }
+        .corp-header { background: var(--jmb-slate); color: white; padding: env(safe-area-inset-top) 20px 15px 20px; border-bottom: 4px solid var(--jmb-accent); shrink-0; z-index: 50; }
+        #sidebar { z-index: 9999; transition: transform 0.3s cubic-bezier(0,0,0.2,1); background: #111; transform: translateZ(0); }
+        .nav-link { display: flex; align-items: center; gap: 15px; padding: 22px 25px; color: #888; font-weight: 700; width: 100%; border-left: 5px solid transparent; text-align: left; }
+        .nav-link.active { color: white; background: rgba(255,255,255,0.05); border-left-color: var(--jmb-accent); }
+        button:active { opacity: 0.6; transform: scale(0.98); }
+        .grid-card { background: white; border-radius: 15px; overflow: hidden; border: 1px solid #ddd; position: relative; cursor: pointer; transform: translateZ(0); }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .safe-bottom { padding-bottom: calc(env(safe-area-inset-bottom) + 1.5rem); }
+        .report-stat { background: white; padding: 15px; border-radius: 12px; border: 1px solid #eee; flex: 1; min-width: 120px; }
+    </style>
+</head>
+<body>
+
+    <div id="overlay" onclick="closeSidebar()" class="fixed inset-0 bg-black/70 z-[9000] hidden"></div>
+
+    <aside id="sidebar" class="fixed inset-y-0 left-0 w-72 -translate-x-full shadow-2xl">
+        <div class="p-10 flex flex-col items-center">
+            <div class="w-20 h-20 bg-[#7cb342] rounded-2xl flex items-center justify-center text-white font-black text-4xl shadow-2xl">J</div>
+            <h1 class="text-white mt-6 font-black text-[10px] tracking-[0.4em] uppercase opacity-40 text-center">JMB ENTERPRISE<br>OPERATIONS</h1>
+        </div>
+        <nav class="mt-4">
+            <button onclick="view('pos')" id="btn-pos" class="nav-link active">🛒 SALES TERMINAL</button>
+            <button onclick="view('inventory')" id="btn-inventory" class="nav-link">📋 INVENTORY/ERP</button>
+            <button onclick="view('history')" id="btn-history" class="nav-link">📊 TRANSACTION LOGS</button>
+            <button onclick="view('settings')" id="btn-settings" class="nav-link">⚙️ SYSTEM CONFIG</button>
+        </nav>
+    </aside>
+
+    <header class="corp-header flex justify-between items-center shadow-xl">
+        <button onclick="openSidebar()" class="p-4 -ml-4 text-2xl">☰</button>
+        <div class="text-center">
+            <div id="view-title" class="font-black text-[9px] tracking-[0.4em] uppercase text-white/40">POS TERMINAL</div>
+            <div class="font-bold text-sm tracking-tighter uppercase">Professional V20</div>
+        </div>
+        <button onclick="toggleCart()" class="bg-white/10 px-4 py-2 rounded-xl font-black text-[10px] border border-white/20">
+            CART (<span id="cart-qty">0</span>)
+        </button>
+    </header>
+
+    <main class="flex-1 overflow-hidden relative">
+        <section id="view-pos" class="h-full flex flex-col">
+            <div id="cat-bar" class="bg-white px-4 py-3 flex gap-2 overflow-x-auto no-scrollbar border-b"></div>
+            <div id="pos-grid" class="flex-1 overflow-y-auto p-4 grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4 content-start"></div>
+        </section>
+
+        <section id="view-inventory" class="hidden h-full flex flex-col bg-white">
+            <div class="p-5 border-b flex flex-wrap gap-3 justify-between items-center bg-gray-50">
+                <span class="font-black text-[10px] uppercase text-gray-400">Master Stock Control</span>
+                <div class="flex gap-2">
+                    <button onclick="openModal()" class="bg-blue-600 text-white px-6 py-3 rounded-xl font-black text-[9px] uppercase">+ Add Item</button>
+                </div>
+            </div>
+            <div id="inventory-list" class="flex-1 overflow-y-auto divide-y"></div>
+        </section>
+
+        <section id="view-history" class="hidden h-full flex flex-col bg-white">
+            <div class="p-5 bg-slate-900 text-white border-b">
+                <div id="report-summary" class="flex gap-2 overflow-x-auto no-scrollbar mb-4"></div>
+                <button onclick="exportHistoryCSV()" class="w-full bg-green-600 text-white py-4 rounded-xl font-black text-[10px] uppercase shadow-lg">Download Excel Report</button>
+            </div>
+            <div id="history-list" class="flex-1 overflow-y-auto divide-y"></div>
+        </section>
+
+        <section id="view-settings" class="hidden h-full overflow-y-auto bg-white p-8">
+            <div class="max-w-xl space-y-6">
+                <input id="set-name" placeholder="Company Name" class="w-full p-5 bg-gray-100 rounded-2xl font-black uppercase">
+                <textarea id="set-address" placeholder="Business Address" class="w-full p-5 bg-gray-100 rounded-2xl h-24 font-bold text-sm"></textarea>
+                <button onclick="saveSettings()" class="w-full bg-black text-white py-5 rounded-2xl font-black uppercase tracking-widest">Save Config</button>
+                <div class="pt-10 border-t">
+                    <button onclick="hardReset()" class="text-red-500 font-black text-[10px] uppercase tracking-widest">Factory Reset System</button>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <div id="cart-drawer" class="fixed inset-0 z-[8000] hidden flex flex-col justify-end">
+        <div class="bg-black/60 flex-1" onclick="toggleCart()"></div>
+        <div class="bg-white h-[85vh] rounded-t-[40px] shadow-2xl flex flex-col overflow-hidden">
+            <div class="p-8 space-y-3">
+                <input id="cart-cust" placeholder="CUSTOMER NAME" class="w-full p-5 bg-gray-100 rounded-2xl font-black uppercase border-2 border-transparent focus:border-[#7cb342]">
+                <div id="cart-items" class="max-h-[30vh] overflow-y-auto space-y-2 py-2"></div>
+                <div class="flex justify-between items-center pt-4">
+                    <span class="font-black text-gray-400">TOTAL</span>
+                    <span id="cart-total" class="text-4xl font-black">₱0.00</span>
+                </div>
+                <button onclick="checkout()" class="w-full bg-[#7cb342] text-white py-6 rounded-3xl font-black text-xl shadow-xl mt-4">COMPLETE SALE</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="modal" class="fixed inset-0 z-[9500] bg-black/80 hidden flex items-center justify-center p-4">
+        <div class="bg-white w-full max-w-sm rounded-[35px] p-8 space-y-4">
+            <input type="hidden" id="edit-id">
+            <div class="flex justify-center">
+                <div id="img-prev" onclick="document.getElementById('in-img').click()" class="w-32 h-32 bg-gray-100 rounded-3xl border-2 border-dashed flex items-center justify-center cursor-pointer overflow-hidden">
+                    <span class="text-[10px] font-black text-gray-400 uppercase text-center">Photo</span>
+                </div>
+            </div>
+            <input type="file" id="in-img" accept="image/*" hidden>
+            <input id="in-name" placeholder="PRODUCT NAME" class="w-full border-b-2 py-3 font-black uppercase outline-none">
+            <div class="flex gap-4">
+                <input id="in-price" type="number" placeholder="PRICE" class="w-1/2 border-b-2 py-3 font-black text-[#7cb342] outline-none">
+                <input id="in-stock" type="number" placeholder="STOCK" class="w-1/2 border-b-2 py-3 font-bold outline-none">
+            </div>
+            <input id="in-cat" placeholder="CATEGORY" class="w-full border-b-2 py-3 font-black text-xs uppercase outline-none">
+            <button onclick="saveItem()" class="w-full bg-[#7cb342] text-white py-5 rounded-2xl font-black shadow-lg uppercase">Save Item</button>
+            <button id="del-btn" onclick="deleteItem()" class="w-full text-red-500 font-black text-[10px] uppercase hidden">Delete Permanent</button>
+            <button onclick="closeModal()" class="w-full text-gray-400 font-bold text-[10px] uppercase">Cancel</button>
+        </div>
+    </div>
+
+    <script>
+        // STORAGE KEYS
+        const DB_ITEMS = 'JMB_V20_ITEMS_STORAGE';
+        const DB_LOGS = 'JMB_V20_LOGS_STORAGE';
+        const DB_CFG = 'JMB_V20_CONFIG_STORAGE';
+
+        // DATA INITIALIZATION (LOAD FROM STORAGE OR SET DEFAULT)
+        let items = JSON.parse(localStorage.getItem(DB_ITEMS)) || [];
+        let rxHistory = JSON.parse(localStorage.getItem(DB_LOGS)) || [];
+        let config = JSON.parse(localStorage.getItem(DB_CFG)) || { name: "JMB ENTERPRISE", address: "Philippines", paper: "thermal", foot: "Thank you!" };
+        
+        let cart = [];
+        let curCat = 'All';
+        let curImg = "";
+
+        // PERSISTENCE SYNC ENGINE
+        function sync() {
+            localStorage.setItem(DB_ITEMS, JSON.stringify(items));
+            localStorage.setItem(DB_LOGS, JSON.stringify(rxHistory));
+            localStorage.setItem(DB_CFG, JSON.stringify(config));
+            render();
+        }
+
+        // UI NAVIGATION
+        function openSidebar() { document.getElementById('sidebar').style.transform = 'translateX(0)'; document.getElementById('overlay').classList.remove('hidden'); }
+        function closeSidebar() { document.getElementById('sidebar').style.transform = 'translateX(-100%)'; document.getElementById('overlay').classList.add('hidden'); }
+        
+        function view(v) {
+            document.querySelectorAll('section').forEach(s => s.classList.add('hidden'));
+            document.getElementById(`view-${v}`).classList.remove('hidden');
+            document.querySelectorAll('.nav-link').forEach(l => l.classList.remove('active'));
+            document.getElementById(`btn-${v}`).classList.add('active');
+            document.getElementById('view-title').innerText = v.toUpperCase();
+            closeSidebar();
+        }
+
+        // RENDER FUNCTIONS
+        function render() {
+            // Render POS
+            const grid = document.getElementById('pos-grid');
+            grid.innerHTML = items.filter(i => curCat === 'All' || i.cat === curCat).map(i => `
+                <div onclick="addToCart(${i.id})" class="grid-card shadow-sm p-2">
+                    <div class="aspect-square bg-gray-100 rounded-xl overflow-hidden mb-2 relative">
+                        ${i.img ? `<img src="${i.img}" class="w-full h-full object-cover">` : `<div class="w-full h-full flex items-center justify-center text-2xl font-black text-gray-300">${i.name[0]}</div>`}
+                        <div class="absolute bottom-1 right-1 bg-black text-white text-[8px] px-2 py-0.5 rounded-md">STK: ${i.stock}</div>
+                    </div>
+                    <div class="font-black text-[9px] uppercase truncate">${i.name}</div>
+                    <div class="font-bold text-[#7cb342] text-[10px]">₱${i.price.toLocaleString()}</div>
+                </div>
+            `).join('');
+
+            // Render Category Bar
+            const cats = ['All', ...new Set(items.map(i => i.cat))];
+            document.getElementById('cat-bar').innerHTML = cats.map(c => `
+                <button onclick="curCat='${c}'; render()" class="px-5 py-2 rounded-xl text-[9px] font-black uppercase whitespace-nowrap ${curCat===c ? 'bg-slate-800 text-white':'bg-white border text-gray-400'}">${c}</button>
+            `).join('');
+
+            // Render Inventory
+            document.getElementById('inventory-list').innerHTML = items.map(i => `
+                <div onclick="editItem(${i.id})" class="p-4 flex justify-between items-center active:bg-gray-50">
+                    <div class="flex items-center gap-3">
+                        <div class="w-10 h-10 rounded-lg bg-gray-100 overflow-hidden">${i.img ? `<img src="${i.img}" class="w-full h-full object-cover">` : ''}</div>
+                        <div><div class="font-black text-xs uppercase">${i.name}</div><div class="text-[9px] text-gray-400">STOCK: ${i.stock} | ₱${i.price}</div></div>
+                    </div>
+                    <div class="text-[10px] font-black text-blue-500">EDIT</div>
+                </div>
+            `).join('');
+
+            // Render History
+            document.getElementById('history-list').innerHTML = rxHistory.map(r => `
+                <div class="p-5 border-b ${r.voided ? 'opacity-30' : ''}">
+                    <div class="flex justify-between font-black text-[10px] mb-1">
+                        <span>#${r.no} - ${r.customer}</span>
+                        <span>₱${r.total.toLocaleString()}</span>
+                    </div>
+                    <div class="text-[9px] text-gray-400 mb-3">${r.date}</div>
+                    ${!r.voided ? `<button onclick="voidTX(${r.id})" class="text-[8px] font-black text-red-500 border border-red-500 px-3 py-1 rounded">VOID TRANSACTION</button>` : `<span class="text-[8px] font-black text-red-600 italic">VOIDED</span>`}
+                </div>
+            `).join('');
+
+            const salesTotal = rxHistory.filter(r => !r.voided).reduce((s, r) => s + r.total, 0);
+            document.getElementById('report-summary').innerHTML = `
+                <div class="report-stat">
+                    <div class="text-[8px] font-black text-gray-400 uppercase">Gross Sales</div>
+                    <div class="text-slate-900 font-black text-lg">₱${salesTotal.toLocaleString()}</div>
+                </div>
+            `;
+            
+            document.getElementById('cart-qty').innerText = cart.reduce((s,i) => s + i.qty, 0);
+        }
+
+        // CORE FUNCTIONS
+        function addToCart(id) {
+            const i = items.find(x => x.id === id);
+            if(i.stock <= 0) return alert("No Stock!");
+            const c = cart.find(x => x.id === id);
+            if(c) { if(c.qty < i.stock) c.qty++; } else { cart.push({...i, qty:1}); }
+            updateCartUI();
+        }
+
+        function updateCartUI() {
+            document.getElementById('cart-items').innerHTML = cart.map((c, idx) => `
+                <div class="flex justify-between items-center bg-gray-50 p-3 rounded-xl">
+                    <div class="text-[10px] font-black">${c.qty}x ${c.name}</div>
+                    <button onclick="cart.splice(${idx},1); updateCartUI()" class="text-red-500 font-black">✕</button>
+                </div>
+            `).join('');
+            const total = cart.reduce((s,i) => s + (i.qty * i.price), 0);
+            document.getElementById('cart-total').innerText = `₱${total.toLocaleString()}`;
+            document.getElementById('cart-qty').innerText = cart.reduce((s,i) => s + i.qty, 0);
+        }
+
+        function checkout() {
+            const cust = document.getElementById('cart-cust').value;
+            if(!cart.length || !cust) return alert("Enter Customer Name");
+            
+            const rx = {
+                id: Date.now(), no: Math.floor(10000+Math.random()*89999),
+                date: new Date().toLocaleString(), customer: cust,
+                items: [...cart], total: cart.reduce((s,i) => s + (i.qty * i.price), 0),
+                voided: false
+            };
+
+            cart.forEach(c => { const i = items.find(x => x.id === c.id); if(i) i.stock -= c.qty; });
+            rxHistory.unshift(rx);
+            cart = [];
+            document.getElementById('cart-cust').value = "";
+            toggleCart();
+            sync(); // INSTANT SAVE
+        }
+
+        function saveItem() {
+            const id = document.getElementById('edit-id').value;
+            const name = document.getElementById('in-name').value;
+            if(!name) return;
+
+            const obj = {
+                id: id ? parseInt(id) : Date.now(),
+                name: name,
+                price: parseFloat(document.getElementById('in-price').value) || 0,
+                stock: parseInt(document.getElementById('in-stock').value) || 0,
+                cat: document.getElementById('in-cat').value || 'GEN',
+                img: curImg
+            };
+
+            if(id) {
+                const idx = items.findIndex(x => x.id === parseInt(id));
+                items[idx] = obj;
+            } else {
+                items.push(obj);
+            }
+            sync(); // INSTANT SAVE
+            closeModal();
+        }
+
+        function voidTX(id) {
+            if(confirm("Void this sale? Changes are permanent.")) {
+                rxHistory.find(x => x.id === id).voided = true;
+                sync();
+            }
+        }
+
+        function deleteItem() {
+            if(confirm("Delete item forever?")) {
+                const id = parseInt(document.getElementById('edit-id').value);
+                items = items.filter(x => x.id !== id);
+                sync();
+                closeModal();
+            }
+        }
+
+        function saveSettings() {
+            config = {
+                name: document.getElementById('set-name').value,
+                address: document.getElementById('set-address').value,
+                paper: config.paper, foot: config.foot
+            };
+            sync();
+            alert("Config Saved Permanently");
+        }
+
+        function hardReset() {
+            if(confirm("WARNING: Wipe ALL data?")) {
+                localStorage.clear();
+                location.reload();
+            }
+        }
+
+        // IMAGE LOGIC
+        document.getElementById('in-img').addEventListener('change', function(e) {
+            const reader = new FileReader();
+            reader.onload = (ev) => {
+                curImg = ev.target.result;
+                document.getElementById('img-prev').innerHTML = `<img src="${curImg}" class="w-full h-full object-cover">`;
+            };
+            reader.readAsDataURL(e.target.files[0]);
+        });
+
+        // HELPERS
+        function toggleCart() { document.getElementById('cart-drawer').classList.toggle('hidden'); }
+        function openModal() { document.getElementById('modal').classList.remove('hidden'); }
+        function closeModal() { 
+            document.getElementById('modal').classList.add('hidden');
+            document.getElementById('edit-id').value=""; document.getElementById('in-name').value=""; 
+            document.getElementById('in-price').value=""; document.getElementById('in-stock').value="";
+            document.getElementById('del-btn').classList.add('hidden');
+            curImg = ""; document.getElementById('img-prev').innerHTML = "Photo";
+        }
+        function editItem(id) {
+            const i = items.find(x => x.id === id);
+            document.getElementById('edit-id').value = i.id;
+            document.getElementById('in-name').value = i.name;
+            document.getElementById('in-price').value = i.price;
+            document.getElementById('in-stock').value = i.stock;
+            document.getElementById('in-cat').value = i.cat;
+            curImg = i.img;
+            if(i.img) document.getElementById('img-prev').innerHTML = `<img src="${i.img}" class="w-full h-full object-cover">`;
+            document.getElementById('del-btn').classList.remove('hidden');
+            openModal();
+        }
+
+        function exportHistoryCSV() {
+            let csv = "\uFEFFInvoice,Date,Customer,Total,Status\n";
+            rxHistory.forEach(r => {
+                csv += `${r.no},${r.date},"${r.customer}",${r.total},${r.voided?'VOID':'SUCCESS'}\n`;
+            });
+            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement("a");
+            link.href = URL.createObjectURL(blob);
+            link.download = `JMB_Report_${new Date().toLocaleDateString()}.csv`;
+            link.click();
+        }
+
+        // BOOT
+        document.getElementById('set-name').value = config.name;
+        document.getElementById('set-address').value = config.address;
+        render();
+    </script>
+</body>
+</html>
